@@ -57,7 +57,7 @@ layer name. The opacity must be between 0 and 1. Example:
         FILENAME = args[0]
     except IndexError:
         parser.print_help()
-        sys.exit(1)
+        return 1
 
     # Load the file
     f = open(FILENAME)
@@ -80,7 +80,7 @@ layer name. The opacity must be between 0 and 1. Example:
 
     if not content_layer:
         print "No 'content'-labeled layer found. See --help for more"
-        sys.exit(1)
+        return 1
 
     content = content_layer[0]
 
@@ -92,7 +92,7 @@ layer name. The opacity must be between 0 and 1. Example:
     if not bool(preslides):
         print "Make sure you have a text box (with no flowRect) in the " \
             "'content' layer, and rerun this program."
-        sys.exit(1)
+        return 1
 
     # Get the initial style attribute and keep it
     orig_style = {}
@@ -250,3 +250,8 @@ layer name. The opacity must be between 0 and 1. Example:
     if joinedpdf:
         for pdfslide in pdfslides:
             os.unlink(pdfslide)
+
+    return 0
+
+if __name__ == '__main__':
+    sys.exit(main())
