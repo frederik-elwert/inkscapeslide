@@ -74,26 +74,6 @@ layer name. The opacity must be between 0 and 1. Example:
     # inkscape names for certain things in the svg
     ink_label = '{http://www.inkscape.org/namespaces/inkscape}label'
 
-    # Scan the 'content' layer
-    content_layer = [layer for layer in layers
-            if layer.attrib.get(ink_label, False).lower() == 'content']
-
-    if not content_layer:
-        print "No 'content'-labeled layer found. See --help for more"
-        return 1
-
-    content = content_layer[0]
-
-    # Find the text stuff, everything starting with SLIDE:
-    #   take all the layer names separated by ','..
-    ink_tspan = '{http://www.w3.org/2000/svg}text/{http://www.w3.org/2000/svg}tspan'
-    preslides = [x.text for x in content.findall(ink_tspan) if x.text]
-
-    if not bool(preslides):
-        print "Make sure you have a text box (with no flowRect) in the " \
-            "'content' layer, and rerun this program."
-        return 1
-
     # Get the initial style attribute and keep it
     orig_style = {}
     for layer in layers:
@@ -103,24 +83,68 @@ layer name. The opacity must be between 0 and 1. Example:
         # Save initial values
         orig_style[label] = layer.attrib['style']
 
-    # slides contains seq of [('layer', opacity), ('layer', opacity), ..]
-    slides = []
-    for slide in preslides:
-        if slide:
-            if slide.startswith('+'):
-                slide = slide[1:]
-                sl_layers = slides[-1].copy()
-            else:
-                sl_layers = {}
+    # Scan the 'content' layer
+    content_layer = [layer for layer in layers
+            if layer.attrib.get(ink_label, False).lower() == 'content']
 
-            for layer in slide.split(','):
-                elements = layer.strip().split('*')
-                name = elements[0].strip()
-                opacity = None
-                if len(elements) == 2:
-                    opacity = float(elements[1].strip())
-                sl_layers[name] = {'opacity': opacity}
-            slides.append(sl_layers)
+    if content_layer:
+        # Slides content is specified explicitly. Use this to build slides.
+        content = content_layer[0]
+
+        # Find the text stuff, everything starting with SLIDE:
+        #   take all the layer names separated by ','..
+        ink_tspan = '{http://www.w3.org/2000/svg}text/{http://www.w3.org/2000/svg}tspan'
+        preslides = [x.text for x in content.findall(ink_tspan) if x.text]
+
+        if not bool(preslides):
+            print "Make sure you have a text box (with no flowRect) in the " \
+                "'content' layer, and rerun this program."
+            return 1
+
+        # slides contains seq of {'layer1': {'opacity': opacity},
+        #                         'layer2': {'opacity': opacity}, ...}
+        slides = []
+        for slide in preslides:
+            if slide:
+                if slide.startswith('+'):
+                    slide = slide[1:]
+                    sl_layers = slides[-1].copy()
+                else:
+                    sl_layers = {}
+
+                for layer in slide.split(','):
+                    elements = layer.strip().split('*')
+                    name = elements[0].strip()
+                    opacity = None
+                    if len(elements) == 2:
+                        opacity = float(elements[1].strip())
+                    sl_layers[name] = {'opacity': opacity}
+                slides.append(sl_layers)
+
+    else:
+        # Slides content is not specified. Try to build it.
+        # This mode assumes that one layer is one slide.
+        # If a layer called "background" is present, it is used on every slide.
+        print "No 'content'-labeled layer found. Trying to build it."
+        # slides contains seq of {'layer1': {'opacity': opacity},
+        #                         'layer2': {'opacity': opacity}, ...}
+        slides = []
+        # Scan the 'background' layer
+        use_background = False
+        background_layer = [layer for layer in layers
+                if layer.attrib.get(ink_label, False).lower() == 'background']
+        if background_layer:
+            use_background = True
+            background_layer = background_layer[0]
+        # Create slides from layer names
+        for layer in layers:
+            label = layer.attrib[ink_label]
+            if label.lower() == 'background':
+                continue
+            layer_dict = {label: {'opacity': None}}
+            if use_background:
+                layer_dict['background'] = {'opacity': None}
+            slides.append(layer_dict)
 
     def set_style(el, style, value):
         """
